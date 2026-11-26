@@ -43,6 +43,25 @@ Expected on invalid input or type mismatch: get_boolean → -1, get_array / get_
 Partitions: NULL array (→ JSONFailure); empty array; array with primitive values; array with nested arrays/objects.
 Expected: count becomes 0, no memory leaks, and the array can still be appended to afterwards.
 
+### 2.3 String Serialization (owner: 廖涵玉, Issue #4)
+
+Target: `json_serialize_string` (static), tested through `json_serialize_to_string`,
+`json_serialize_to_string_pretty` and `json_serialize_to_buffer`.
+
+| Partition | Representative values | Expected |
+|---|---|---|
+| Characters with short escapes | `"` `\` `/` `\b` `\f` `\n` `\r` `\t` | `\"` `\\` `\/` `\b` ... |
+| Other control characters | 0x00–0x07, 0x0b, 0x0e–0x1f | `\u00XX` (lowercase hex) |
+| Normal characters | printable ASCII, UTF-8 | copied unchanged |
+| Invalid: buffer too small | buffer size < serialization size | JSONFailure |
+
+Boundary values: **0x1f** (last escaped) / **0x20** (first unescaped); **0x7f** (DEL, not escaped by JSON);
+string length 0 and 32 (all control characters).
+Oracle: exact expected output + round trip `parse(serialize(x)) == x`.
+
+Risk: **High** — 26 escape branches were never executed in the baseline (found via gcov).
+An incorrect escape produces invalid JSON that other parsers would reject.
+
 ### Risk Assessment (Array APIs)
 | Risk | APIs | Reason |
 |---|---|---|
