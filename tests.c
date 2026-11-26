@@ -1028,6 +1028,34 @@ void test_array_apis(void) {
         json_value_free(root);
     }
 
+        /* ---- json_array_get_boolean / array / object / string_len ---- */
+    {
+        JSON_Value *root = json_parse_string("[true, [1], {\"k\": 1}, \"str\", 5]");
+        JSON_Array *arr = json_value_get_array(root);
+
+        /* valid partition: matching type */
+        TEST(json_array_get_boolean(arr, 0) == 1);
+        TEST(json_array_get_count(json_array_get_array(arr, 1)) == 1);
+        TEST(DBL_EQ(json_object_get_number(json_array_get_object(arr, 2), "k"), 1.0));
+        TEST(json_array_get_string_len(arr, 3) == 3);
+
+        /* invalid partition: type mismatch */
+        TEST(json_array_get_boolean(arr, 4) == -1);
+        TEST(json_array_get_array(arr, 0) == NULL);
+        TEST(json_array_get_object(arr, 1) == NULL);
+        TEST(json_array_get_string_len(arr, 4) == 0);
+
+        /* boundary: index = count, and NULL array */
+        TEST(json_array_get_boolean(arr, 5) == -1);
+        TEST(json_array_get_array(arr, 5) == NULL);
+        TEST(json_array_get_object(arr, 5) == NULL);
+        TEST(json_array_get_string_len(arr, 5) == 0);
+        TEST(json_array_get_boolean(NULL, 0) == -1);
+        TEST(json_array_get_array(NULL, 0) == NULL);
+
+        json_value_free(root);
+    }
+
     /* no memory leaks in any of the above */
     TEST(g_malloc_count == 0);
 }
