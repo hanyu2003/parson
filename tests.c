@@ -70,6 +70,7 @@ void test_failing_allocations(void);
 void test_custom_number_format(void);
 void test_custom_number_serialization_function(void);
 void test_object_clear(void);
+void test_array_apis(void);
 
 void print_commits_info(const char *username, const char *repo);
 void persistence_example(void);
@@ -142,6 +143,7 @@ int tests_main(int argc, char *argv[]) {
     test_custom_number_format();
     test_custom_number_serialization_function();
     test_object_clear();
+    test_array_apis();
 
     printf("Tests failed: %d\n", g_tests_failed);
     printf("Tests passed: %d\n", g_tests_passed);
@@ -942,4 +944,90 @@ static void failing_free(void *ptr) {
         g_failing_alloc.alloc_count--;
     }
     free(ptr);
+}
+
+void test_array_apis(void) {
+    g_malloc_count = 0;
+
+/* ---- json_array_append_null / boolean / string_with_len ---- */
+    {
+        JSON_Value *root = json_value_init_array();
+        JSON_Array *arr = json_value_get_array(root);
+        const char embedded[] = {'a', '\0', 'b'};
+
+        /* invalid partition: NULL array */
+        TEST(json_array_append_null(NULL) == JSONFailure);
+        TEST(json_array_append_boolean(NULL, 1) == JSONFailure);
+        TEST(json_array_append_string_with_len(NULL, "abc", 3) == JSONFailure);
+
+        /* boundary: append to empty array (count 0 -> 1) */
+        TEST(json_array_get_count(arr) == 0);
+        TEST(json_array_append_null(arr) == JSONSuccess);
+        TEST(json_array_get_count(arr) == 1);
+        TEST(json_value_get_type(json_array_get_value(arr, 0)) == JSONNull);
+
+        TEST(json_array_append_boolean(arr, 1) == JSONSuccess);
+        TEST(json_array_append_boolean(arr, 0) == JSONSuccess);
+        TEST(json_array_get_boolean(arr, 1) == 1);
+        TEST(json_array_get_boolean(arr, 2) == 0);
+
+        /* string_with_len: len 0, normal, embedded '\0' */
+        TEST(json_array_append_string_with_len(arr, "", 0) == JSONSuccess);
+        TEST(json_array_append_string_with_len(arr, "hello world", 5) == JSONSuccess);
+        TEST(json_array_append_string_with_len(arr, embedded, 3) == JSONSuccess);
+        TEST(json_array_get_string_len(arr, 3) == 0);
+        TEST(STREQ(json_array_get_string(arr, 4), "hello"));
+        TEST(json_array_get_string_len(arr, 4) == 5);
+        TEST(json_array_get_string_len(arr, 5) == 3);
+        TEST(memcmp(json_array_get_string(arr, 5), embedded, 3) == 0);
+
+        /* invalid partition: NULL string, invalid UTF-8 -> array unchanged */
+        TEST(json_array_append_string_with_len(arr, NULL, 3) == JSONFailure);
+        TEST(json_array_append_string_with_len(arr, "\xff\xfe", 2) == JSONFailure);
+        TEST(json_array_get_count(arr) == 6);
+
+        json_value_free(root);
+    }
+
+    /* ---- json_array_replace_null / boolean / number / string_with_len ---- */
+    {
+        JSON_Value *root = json_parse_string("[1, 2, 3]");
+        JSON_Array *arr = json_value_get_array(root);
+        JSON_Value *empty_root = json_value_init_array();
+        JSON_Array *empty = json_value_get_array(empty_root);
+
+        /* boundary: ix = 0 (first) and ix = count-1 (last) -> success */
+        TEST(json_array_replace_null(arr, 0) == JSONSuccess);
+        TEST(json_value_get_type(json_array_get_value(arr, 0)) == JSONNull);
+        TEST(json_array_replace_boolean(arr, 2, 1) == JSONSuccess);
+        TEST(json_array_get_boolean(arr, 2) == 1);
+        TEST(json_array_replace_number(arr, 1, 42.5) == JSONSuccess);
+        TEST(DBL_EQ(json_array_get_number(arr, 1), 42.5));
+        TEST(json_array_replace_string_with_len(arr, 1, "abcdef", 3) == JSONSuccess);
+        TEST(STREQ(json_array_get_string(arr, 1), "abc"));
+        TEST(json_array_get_string_len(arr, 1) == 3);
+
+        /* boundary: ix = count and ix = SIZE_MAX -> failure */
+        TEST(json_array_replace_null(arr, 3) == JSONFailure);
+        TEST(json_array_replace_boolean(arr, 3, 0) == JSONFailure);
+        TEST(json_array_replace_number(arr, 3, 1.0) == JSONFailure);
+        TEST(json_array_replace_string_with_len(arr, 3, "x", 1) == JSONFailure);
+        TEST(json_array_replace_number(arr, (size_t)-1, 1.0) == JSONFailure);
+        TEST(json_array_get_count(arr) == 3);
+
+        /* invalid partition: NULL array, empty array, bad string */
+        TEST(json_array_replace_null(NULL, 0) == JSONFailure);
+        TEST(json_array_replace_boolean(NULL, 0, 1) == JSONFailure);
+        TEST(json_array_replace_number(NULL, 0, 1.0) == JSONFailure);
+        TEST(json_array_replace_null(empty, 0) == JSONFailure);
+        TEST(json_array_replace_string_with_len(arr, 0, NULL, 1) == JSONFailure);
+        TEST(json_array_replace_string_with_len(arr, 0, "\xff", 1) == JSONFailure);
+        TEST(json_value_get_type(json_array_get_value(arr, 0)) == JSONNull);
+
+        json_value_free(empty_root);
+        json_value_free(root);
+    }
+
+    /* no memory leaks in any of the above */
+    TEST(g_malloc_count == 0);
 }
