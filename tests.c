@@ -1056,6 +1056,29 @@ void test_array_apis(void) {
         json_value_free(root);
     }
 
+       /* ---- json_array_clear ---- */
+    {
+        JSON_Value *root = json_parse_string("[1, \"a\", [2, 3], {\"k\": [4]}]");
+        JSON_Array *arr = json_value_get_array(root);
+        JSON_Value *empty_root = json_value_init_array();
+
+        TEST(json_array_clear(NULL) == JSONFailure);
+        TEST(json_array_clear(json_value_get_array(empty_root)) == JSONSuccess);
+        TEST(json_array_get_count(json_value_get_array(empty_root)) == 0);
+
+        /* nested values must be freed (checked by g_malloc_count below) */
+        TEST(json_array_clear(arr) == JSONSuccess);
+        TEST(json_array_get_count(arr) == 0);
+        TEST(json_array_get_value(arr, 0) == NULL);
+
+        /* array is still usable after clear */
+        TEST(json_array_append_number(arr, 7) == JSONSuccess);
+        TEST(json_array_get_count(arr) == 1);
+
+        json_value_free(empty_root);
+        json_value_free(root);
+    }
+
     /* no memory leaks in any of the above */
     TEST(g_malloc_count == 0);
 }
