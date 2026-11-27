@@ -1,0 +1,37 @@
+Parson commit: ec53fb6
+Compiler: gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+Date: 2026-11-26
+
+Testing failing allocations: OK (tested 536 failing allocations)
+Tests failed: 0
+Tests passed: 362
+################################################################################
+
+Taken at least once:72.65% of 1009
+Calls executed:83.71% of 442
+Creating 'parson.c.gcov'
+
+Lines executed:83.98% of 1604
+
+Uncovered functions (21):
+json_boolean
+json_number
+json_string_len
+json_type
+json_object_dotset_null
+json_object_dotset_boolean
+json_object_dotset_string_with_len
+json_array_append_null
+json_array_append_boolean
+json_array_append_string_with_len
+json_array_clear
+json_array_replace_null
+json_array_replace_boolean
+json_array_replace_number
+json_array_replace_string_with_len
+json_array_get_boolean
+json_array_get_array
+json_array_get_object
+json_array_get_string_len
+json_object_dotget_object
+json_object_dotget_string_len
